@@ -32,8 +32,7 @@
                     </div>
                     <div>
                         <h1 class="font-bold text-sm sm:text-lg tracking-tight">Zain Ponsel</h1>
-                        <p class="text-[10px] sm:text-xs text-slate-400">Sistem Servis, Stok & Keuangan <br> Versi 27.09.26 </p>
-                        
+                        <p class="text-[10px] sm:text-xs text-slate-400">Sistem Servis, Stok & Keuangan <br> Versi 270926.5 </p>
                     </div>
                 </div>
                 <div id="headerSyncBadge" class="flex sm:hidden items-center space-x-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
@@ -630,14 +629,14 @@
                     </div>
                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
                         <div>
-                            <div class="font-semibold text-slate-700">Status Koneksi</div>
+                            <div class="font-semibold text-slate-700">Status Koneksi & Antrean</div>
                             <div id="syncStatusBadge" class="text-[11px] text-emerald-600 font-bold">Terhubung</div>
                         </div>
                         <button type="button" onclick="testConnection()" class="w-full sm:w-auto px-3 py-1.5 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700 cursor-pointer">Uji Koneksi</button>
                     </div>
                     <div class="pt-2 flex flex-col sm:flex-row justify-end gap-2">
                         <button type="button" onclick="syncFromGoogleSheets(true)" class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow cursor-pointer">Tarik Data</button>
-                        <button type="button" onclick="syncToGoogleSheetsAll()" class="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow cursor-pointer">Kirim Semua</button>
+                        <button type="button" onclick="syncToGoogleSheetsAll()" class="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold shadow cursor-pointer">Kirim Semua / Pending</button>
                     </div>
                 </div>
             </div>
@@ -847,7 +846,7 @@
                     </div>
                     <div>
                         <label class="block font-medium text-slate-700 mb-1">Batas Minimum (Alert)</label>
-                        <input type="number" id="stockMin" min="0" value="2" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <input type="number" id="stockMin" min="0" value="10" class="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -1075,6 +1074,7 @@
         let stockLogs = JSON.parse(localStorage.getItem('stock_logs')) || [];
         let expenseDatabase = JSON.parse(localStorage.getItem('expense_db')) || [];
         let localPhotos = JSON.parse(localStorage.getItem('local_photos_db')) || {};
+        let offlineQueue = JSON.parse(localStorage.getItem('offline_queue')) || [];
         let currentEditingSpareparts = [];
 
         let mapInstance = null;
@@ -1099,7 +1099,15 @@
             initLaporanRecap();
             
             syncFromGoogleSheets(false);
-            setInterval(() => syncFromGoogleSheets(false), 25000);
+            setInterval(() => {
+                syncFromGoogleSheets(false);
+                processOfflineQueue();
+            }, 25000);
+
+            window.addEventListener('online', () => {
+                showToast("Koneksi internet pulih. Mengirim antrean offline...", "success");
+                processOfflineQueue();
+            });
 
             const urlParams = new URLSearchParams(window.location.search);
             const idParam = urlParams.get('id');
@@ -1121,16 +1129,19 @@
             const headerDotMobile = document.getElementById('headerSyncDotMobile');
             const headerTextMobile = document.getElementById('headerSyncTextMobile');
 
-            if (headerTextMobile) headerTextMobile.innerText = message;
+            let queueCount = offlineQueue.length;
+            let displayMsg = queueCount > 0 ? `${message} (${queueCount} antrean)` : message;
+
+            if (headerTextMobile) headerTextMobile.innerText = displayMsg;
             if (status === 'success') {
-                if (badge) { badge.innerText = message; badge.className = "text-[11px] text-emerald-600 font-bold flex items-center gap-1"; }
+                if (badge) { badge.innerText = displayMsg; badge.className = "text-[11px] text-emerald-600 font-bold flex items-center gap-1"; }
                 if (headerDotMobile) headerDotMobile.className = "w-1.5 h-1.5 rounded-full bg-emerald-500";
             } else if (status === 'syncing') {
-                if (badge) { badge.innerText = message; badge.className = "text-[11px] text-amber-600 font-medium flex items-center gap-1"; }
+                if (badge) { badge.innerText = displayMsg; badge.className = "text-[11px] text-amber-600 font-medium flex items-center gap-1"; }
                 if (headerDotMobile) headerDotMobile.className = "w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse";
             } else {
-                if (badge) { badge.innerText = message + " (Cek Akses Script)"; badge.className = "text-[11px] text-rose-600 font-bold flex items-center gap-1"; }
-                if (headerDotMobile) headerDotMobile.className = "w-1.5 h-1.5 rounded-full bg-rose-500";
+                if (badge) { badge.innerText = displayMsg + " (Offline/Pending)"; badge.className = "text-[11px] text-amber-600 font-bold flex items-center gap-1"; }
+                if (headerDotMobile) headerDotMobile.className = "w-1.5 h-1.5 rounded-full bg-amber-500";
             }
         }
 
@@ -1147,6 +1158,11 @@
         function syncFromGoogleSheets(isManual = false) {
             const url = getActiveWebUrl();
             if (!url) { updateSyncBadge('error', 'URL Belum Set'); return; }
+            if (!navigator.onLine) {
+                updateSyncBadge('error', 'Offline');
+                if (isManual) showToast("Perangkat sedang offline. Menggunakan cache lokal.", "warning");
+                return;
+            }
             updateSyncBadge('syncing', 'Sync...');
 
             const controller = new AbortController();
@@ -1220,25 +1236,67 @@
                 })
                 .catch(err => {
                     clearTimeout(timeoutId);
-                    updateSyncBadge('error', 'Gagal');
-                    if (isManual) showToast("Gagal mengambil data dari Google Sheets.", "error");
+                    updateSyncBadge('error', 'Offline');
+                    if (isManual) showToast("Gagal terhubung ke Google Sheets. Data tersimpan di antrean.", "warning");
                 });
         }
 
         function pushRecordToSheets(record, sheetType = "SERVICE") {
             const url = getActiveWebUrl();
             if (!url) return;
+
+            if (!navigator.onLine) {
+                offlineQueue.push({ sheetType: sheetType, data: record });
+                localStorage.setItem('offline_queue', JSON.stringify(offlineQueue));
+                updateSyncBadge('error', 'Offline');
+                showToast("Koneksi terputus. Data dimasukkan ke antrean offline.", "warning");
+                return;
+            }
+
             fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "text/plain;charset=utf-8" },
                 body: JSON.stringify({ sheetType: sheetType, data: record })
-            }).catch(err => console.error("Sync error:", err));
+            }).then(() => {
+                updateSyncBadge('success', 'Online');
+            }).catch(err => {
+                offlineQueue.push({ sheetType: sheetType, data: record });
+                localStorage.setItem('offline_queue', JSON.stringify(offlineQueue));
+                updateSyncBadge('error', 'Offline');
+            });
+        }
+
+        function processOfflineQueue() {
+            if (offlineQueue.length === 0 || !navigator.onLine) return;
+            const url = getActiveWebUrl();
+            if (!url) return;
+
+            let currentQueue = [...offlineQueue];
+            offlineQueue = [];
+            localStorage.setItem('offline_queue', JSON.stringify(offlineQueue));
+
+            currentQueue.forEach(item => {
+                fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify(item)
+                }).catch(err => {
+                    offlineQueue.push(item);
+                    localStorage.setItem('offline_queue', JSON.stringify(offlineQueue));
+                });
+            });
+            if (offlineQueue.length === 0) {
+                showToast("Semua antrean offline berhasil disinkronkan!", "success");
+                updateSyncBadge('success', 'Online');
+            }
         }
 
         function syncToGoogleSheetsAll() {
             const url = getActiveWebUrl();
             if (!url) { showToast("URL belum diatur", "error"); return; }
-            showToast("Mengirim semua data...", "success");
+            showToast("Mengirim semua data & antrean...", "success");
+            
+            processOfflineQueue();
             database.forEach(r => pushRecordToSheets(r, "SERVICE"));
             stockDatabase.forEach(i => pushRecordToSheets(i, "STOCK"));
             stockLogs.forEach(l => pushRecordToSheets(l, "MUTASI"));
@@ -1312,7 +1370,7 @@
 
             document.getElementById('statTotalStokItems').innerText = stockDatabase.length;
             document.getElementById('statTotalStokQty').innerText = stockDatabase.reduce((a, b) => a + (parseInt(b.Qty) || 0), 0);
-            document.getElementById('statTotalStokCritical').innerText = stockDatabase.filter(i => (parseInt(i.Qty) || 0) <= (parseInt(i.Min_Qty) || 2)).length;
+            document.getElementById('statTotalStokCritical').innerText = stockDatabase.filter(i => (parseInt(i.Qty) || 0) <= (parseInt(i.Min_Qty) || 10)).length;
 
             let filtered = stockDatabase.filter(item => {
                 const matchSearch = String(item.SKU || '').toLowerCase().includes(search) || String(item.Nama_Barang || '').toLowerCase().includes(search);
@@ -1333,11 +1391,9 @@
                 if (qtyVal > 50) {
                     qtyBadge = `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-bold">${qtyVal}</span>`;
                 } else if (qtyVal >= 10) {
-                    qtyBadge = `<span class="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full font-bold">${qtyVal}</span>`;
-                } else if (qtyVal > 0) {
                     qtyBadge = `<span class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full font-bold">${qtyVal}</span>`;
                 } else {
-                    qtyBadge = `<span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full font-bold">0 (Habis)</span>`;
+                    qtyBadge = `<span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full font-bold">${qtyVal} (Habis/Kritis)</span>`;
                 }
 
                 tbody.innerHTML += `
@@ -1377,7 +1433,7 @@
             document.getElementById('stockNama').value = item.Nama_Barang;
             document.getElementById('stockKategori').value = item.Kategori;
             document.getElementById('stockQty').value = item.Qty;
-            document.getElementById('stockMin').value = item.Min_Qty || 2;
+            document.getElementById('stockMin').value = item.Min_Qty || 10;
             document.getElementById('stockModal').value = item.Modal;
             document.getElementById('stockJual').value = item.Jual;
             document.getElementById('stockModalTitle').innerText = "Edit Barang Inventaris";
@@ -1393,7 +1449,7 @@
             const nama = document.getElementById('stockNama').value.trim();
             const kategori = document.getElementById('stockKategori').value;
             const qty = parseInt(document.getElementById('stockQty').value) || 0;
-            const minQty = parseInt(document.getElementById('stockMin').value) || 2;
+            const minQty = parseInt(document.getElementById('stockMin').value) || 10;
             const modal = parseFloat(document.getElementById('stockModal').value) || 0;
             const jual = parseFloat(document.getElementById('stockJual').value) || 0;
 
@@ -1964,7 +2020,6 @@
             const stockItem = stockDatabase.find(s => s.SKU === sku);
             if (!stockItem || stockItem.Qty < qty) { showToast("Stok tidak mencukupi", "error"); return; }
 
-            // Deduct immediately when added to repair
             stockItem.Qty -= qty;
             const currentId = document.getElementById('editIdPendaftaran').value;
             addStockLog(stockItem.SKU, -qty, `Digunakan untuk servis (${currentId})`);
@@ -1987,7 +2042,6 @@
             }
 
             if (targetPart) {
-                // Restore stock back
                 if (targetPart.sku) {
                     const stockItem = stockDatabase.find(s => s.SKU === targetPart.sku);
                     if (stockItem) {
