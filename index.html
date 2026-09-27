@@ -1,4 +1,4 @@
-
+```html
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -1441,7 +1441,7 @@
 
         function addStockLog(sku, mutasi, keterangan) {
             const now = new Date();
-            const formattedDate = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}, ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            const formattedDate = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}, ${String(now.getHours()).padStart(2,'0')}.${String(now.getMinutes()).padStart(2,'0')}.${String(now.getSeconds()).padStart(2,'0')}`;
             const logObj = { Waktu: formattedDate, SKU: sku, Mutasi: mutasi, Keterangan: keterangan };
             stockLogs.unshift(logObj);
             if (stockLogs.length > 100) stockLogs.pop();
@@ -1519,7 +1519,7 @@
             const endTime = endStr ? new Date(endStr).setHours(23,59,59,999) : Infinity;
 
             const filtered = expenseDatabase.filter(item => {
-                const t = new Date(item.Tanggal).getTime() || 0;
+                const t = parseCustomDate(item.Tanggal);
                 const matchDate = t >= startTime && t <= endTime;
                 const matchSearch = String(item.Judul || '').toLowerCase().includes(search) || String(item.Detail || '').toLowerCase().includes(search) || String(item.ID_Pengeluaran || '').toLowerCase().includes(search);
                 return matchDate && matchSearch;
@@ -1535,7 +1535,7 @@
                 return;
             }
 
-            filtered.sort((a,b) => new Date(b.Tanggal) - new Date(a.Tanggal));
+            filtered.sort((a,b) => parseCustomDate(b.Tanggal) - parseCustomDate(a.Tanggal));
             filtered.forEach(item => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition-colors">
@@ -1565,11 +1565,19 @@
             e.preventDefault();
             const id = "EXP-" + Math.floor(1000 + Math.random() * 9000);
             const judul = document.getElementById('expenseJudul').value.trim();
-            const tanggal = document.getElementById('expenseTanggal').value;
+            const rawDateInput = document.getElementById('expenseTanggal').value;
+            const now = new Date();
+            let formattedDate = rawDateInput;
+            if (rawDateInput) {
+                const parts = rawDateInput.split('-');
+                if (parts.length === 3) {
+                    formattedDate = `${parseInt(parts[2])}/${parseInt(parts[1])}/${parts[0]}, ${String(now.getHours()).padStart(2,'0')}.${String(now.getMinutes()).padStart(2,'0')}.${String(now.getSeconds()).padStart(2,'0')}`;
+                }
+            }
             const jumlah = parseFloat(document.getElementById('expenseJumlah').value) || 0;
             const detail = document.getElementById('expenseDetail').value.trim();
 
-            const expenseObj = { ID_Pengeluaran: id, Judul: judul, Tanggal: tanggal, Jumlah: jumlah, Detail: detail };
+            const expenseObj = { ID_Pengeluaran: id, Judul: judul, Tanggal: formattedDate, Jumlah: jumlah, Detail: detail };
             expenseDatabase.unshift(expenseObj);
             saveExpenseLocally();
             pushRecordToSheets(expenseObj, "PENGELUARAN");
@@ -1631,7 +1639,7 @@
             const totalPemasukan = pemCash + pemQris;
 
             const filteredExpense = expenseDatabase.filter(item => {
-                const t = new Date(item.Tanggal).getTime() || 0;
+                const t = parseCustomDate(item.Tanggal);
                 return t >= startTime && t <= endTime;
             });
             const totalPengeluaran = filteredExpense.reduce((acc, c) => acc + (parseFloat(c.Jumlah) || 0), 0);
@@ -1669,7 +1677,7 @@
                 filteredExpense.forEach(item => {
                     tbodyPengeluaran.innerHTML += `
                         <tr class="hover:bg-slate-50">
-                            <td class="p-2.5"><div class="font-bold text-slate-900">${item.Tanggal}</div><div class="text-[10px] text-slate-400">${item.Judul}</div></td>
+                            <td class="p-2.5"><div class="font-bold text-slate-900">${item.Tanggal.split(',')[0]}</div><div class="text-[10px] text-slate-400">${item.Judul}</div></td>
                             <td class="p-2.5 text-slate-600">${item.Detail || '-'}</td>
                             <td class="p-2.5 text-right font-bold text-rose-600">Rp ${(parseFloat(item.Jumlah)||0).toLocaleString('id-ID')}</td>
                         </tr>
@@ -1937,7 +1945,8 @@
 
             // Deduct immediately when added to repair
             stockItem.Qty -= qty;
-            addStockLog(stockItem.SKU, -qty, `Digunakan untuk servis (${stockItem.Nama_Barang})`);
+            const currentId = document.getElementById('editIdPendaftaran').value;
+            addStockLog(stockItem.SKU, -qty, `Digunakan untuk servis (${currentId})`);
             saveStockLocally();
             pushRecordToSheets(stockItem, "STOCK");
 
@@ -1962,7 +1971,8 @@
                     const stockItem = stockDatabase.find(s => s.SKU === targetPart.sku);
                     if (stockItem) {
                         stockItem.Qty += targetPart.qty;
-                        addStockLog(stockItem.SKU, targetPart.qty, `Pembatalan/penghapusan sparepart dari servis (${stockItem.Nama_Barang})`);
+                        const currentId = document.getElementById('editIdPendaftaran').value;
+                        addStockLog(stockItem.SKU, targetPart.qty, `Pembatalan/penghapusan sparepart dari servis (${currentId})`);
                         saveStockLocally();
                         pushRecordToSheets(stockItem, "STOCK");
                     }
@@ -2255,3 +2265,4 @@
     </script>
 </body>
 </html>
+```
