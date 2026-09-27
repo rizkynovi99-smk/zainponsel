@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cek Status Servis - Zain Ponsel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between">
+
+    <header class="bg-slate-800/80 backdrop-blur-md border-b border-slate-700/50 sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 py-3.5 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid fa-store text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base sm:text-lg tracking-tight text-white">Zain Ponsel</h1>
+                    <p class="text-[10px] sm:text-xs text-slate-400">Portal Pelacakan Servis Mandiri</p>
+                </div>
+            </div>
+            <div id="syncBadge" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-700/60 text-slate-300 border border-slate-600">
+                <span id="syncDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span id="syncText">Online</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-8 sm:py-12 flex flex-col justify-center space-y-8">
+        
+        <div class="max-w-xl mx-auto w-full bg-slate-800 p-6 sm:p-8 rounded-3xl border border-slate-700/80 shadow-2xl space-y-6 text-center">
+            <div class="w-16 h-16 bg-blue-600/20 text-blue-400 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-inner border border-blue-500/30">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </div>
+            <div class="space-y-2">
+                <h2 class="text-xl sm:text-2xl font-bold text-white">Lacak Status Servis HP Anda</h2>
+                <p class="text-xs sm:text-sm text-slate-400">Masukkan ID Pendaftaran atau scan QR Code pada nota servis yang Anda miliki.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div class="relative flex-grow">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                        <i class="fa-solid fa-hashtag text-xs"></i>
+                    </span>
+                    <input type="text" id="consumerInputId" placeholder="Ketik ID (cth: SRV-XXXXXX)" class="w-full pl-9 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-2xl text-xs sm:text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:outline-none uppercase font-mono">
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="openScanner()" class="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl font-semibold flex items-center justify-center space-x-1.5 text-xs shadow transition-all cursor-pointer" title="Scan QR Kamera">
+                        <i class="fa-solid fa-camera text-base"></i>
+                        <span class="inline sm:hidden">Scan</span>
+                    </button>
+                    <button type="button" onclick="cariStatusKonsumen()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-semibold text-xs shadow-lg shadow-blue-500/25 transition-all cursor-pointer">
+                        Cek Status
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="consumerResultCard" class="max-w-2xl mx-auto w-full bg-slate-800 rounded-3xl border border-slate-700/80 shadow-2xl overflow-hidden hidden space-y-6 p-6 sm:p-8"></div>
+
+    </main>
+
+    <footer class="bg-slate-900 border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+        <p>&copy; 2026 Zain Ponsel. Seluruh hak cipta dilindungi.</p>
+    </footer>
+
+    <div id="modalScanner" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-700 text-center">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-white text-sm sm:text-base">Scan QR Code Nota</h3>
+                <button type="button" onclick="closeScanner()" class="text-slate-400 hover:text-white text-xl cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="reader" class="w-full rounded-2xl overflow-hidden border border-slate-700 bg-slate-900"></div>
+            <button type="button" onclick="closeScanner()" class="w-full px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold text-xs cursor-pointer">Tutup</button>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-950 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center space-x-2 text-xs font-medium max-w-sm border border-slate-800">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 flex-shrink-0"></i>
+        <span id="toastMsg">Pesan Notifikasi</span>
+    </div>
+
+    <script>
+        const DEFAULT_WEB_URL = "https://script.google.com/macros/s/AKfycbzGZgKs7hGiRZbPnLFilkNohCGPRtNCO2oUT9uJy9OBYERxWg2hPPv7EUA97mkhl1XD/exec";
+        let database = [];
+        let html5QrCode = null;
+
+        window.onload = function() {
+            fetchDatabase();
+            
+            // Auto check if URL has ?id=...
+            const urlParams = new URLSearchParams(window.location.search);
+            const idParam = urlParams.get('id');
+            if (idParam) {
+                document.getElementById('consumerInputId').value = idParam;
+                // Wait slightly for database fetch then search
+                setTimeout(() => { cariStatusKonsumen(); }, 600);
+            }
+        };
+
+        function fetchDatabase() {
+            const url = DEFAULT_WEB_URL;
+            fetch(url + "?sheet=SERVICE")
+                .then(res => res.text())
+                .then(text => {
+                    try {
+                        const data = JSON.parse(text);
+                        if (Array.isArray(data)) {
+                            database = data;
+                            document.getElementById('syncDot').className = "w-2 h-2 rounded-full bg-emerald-500";
+                            document.getElementById('syncText').innerText = "Online";
+                        }
+                    } catch(e) {
+                        document.getElementById('syncDot').className = "w-2 h-2 rounded-full bg-amber-400";
+                        document.getElementById('syncText').innerText = "Offline Cache";
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('syncDot').className = "w-2 h-2 rounded-full bg-rose-500";
+                    document.getElementById('syncText').innerText = "Gagal";
+                });
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+            toastMsg.innerText = msg;
+            toastIcon.className = type === 'success' ? "fa-solid fa-circle-check text-emerald-400 flex-shrink-0" : "fa-solid fa-triangle-exclamation text-amber-400 flex-shrink-0";
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 3500);
+        }
+
+        function parseCustomDate(dateStr) {
+            if (!dateStr) return 0;
+            if (dateStr.includes('-') && !dateStr.includes('/')) return new Date(dateStr).getTime() || 0;
+            try {
+                const parts = dateStr.split(', ');
+                if (parts.length < 2) return new Date(dateStr).getTime() || 0;
+                const d = parts[0].split('/');
+                const t = parts[1].split('.');
+                return new Date(d[2], d[1] - 1, d[0], t[0]||0, t[1]||0, t[2]||0).getTime();
+            } catch (e) { return new Date(dateStr).getTime() || 0; }
+        }
+
+        function cariStatusKonsumen() {
+            let raw = document.getElementById('consumerInputId').value.trim().toUpperCase();
+            if (!raw) { showToast("Masukkan ID Pendaftaran", "warning"); return; }
+            if (raw.includes('?')) {
+                try {
+                    const u = new URL(raw.startsWith('http') ? raw : 'http://a.com/' + raw);
+                    raw = (u.searchParams.get('id') || u.searchParams.get('ID') || raw).toUpperCase();
+                } catch(e) {}
+            }
+            const matches = database.filter(i => i.ID_Pendaftaran && i.ID_Pendaftaran.toUpperCase() === raw);
+            let item = matches.length > 0 ? matches.sort((a,b)=>parseCustomDate(b.Tanggal_Daftar)-parseCustomDate(a.Tanggal_Daftar))[0] : null;
+            const resCard = document.getElementById('consumerResultCard');
+
+            if (!item) {
+                resCard.classList.remove('hidden');
+                resCard.innerHTML = `<div class="text-center py-8 text-slate-400">Data dengan ID <b>${raw}</b> tidak ditemukan. Pastikan ID benar atau hubungi konter.</div>`;
+                return;
+            }
+
+            const statuses = ["Menunggu", "Proses Perbaikan", "Selesai", "Diambil / Lunas"];
+            let cIdx = statuses.indexOf(item.Status_Perbaikan);
+            let stepper = "";
+            statuses.forEach((st, idx) => {
+                let passed = cIdx >= idx;
+                stepper += `
+                    <div class="flex flex-col items-center flex-1">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${passed?'bg-blue-600 text-white shadow-lg shadow-blue-500/30':'bg-slate-700 text-slate-400'}">${idx+1}</div>
+                        <span class="text-[10px] sm:text-xs mt-1.5 text-center ${passed?'text-slate-200 font-medium':'text-slate-500'}">${st}</span>
+                    </div>
+                `;
+            });
+
+            let badgeColor = "bg-amber-500/20 text-amber-400 border-amber-500/30";
+            if (item.Status_Perbaikan === 'Proses Perbaikan') badgeColor = "bg-blue-500/20 text-blue-400 border-blue-500/30";
+            if (item.Status_Perbaikan === 'Selesai') badgeColor = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+            if (item.Status_Perbaikan === 'Diambil / Lunas') badgeColor = "bg-indigo-500/20 text-indigo-400 border-indigo-500/30";
+            if (item.Status_Perbaikan === 'Batal') badgeColor = "bg-rose-500/20 text-rose-400 border-rose-500/30";
+
+            resCard.classList.remove('hidden');
+            resCard.innerHTML = `
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-700 pb-4">
+                    <div>
+                        <div class="text-xs text-slate-400 font-mono">ID: <span class="text-white font-bold">${item.ID_Pendaftaran}</span> | Tanggal: ${item.Tanggal_Daftar || '-'}</div>
+                        <h3 class="font-bold text-white text-lg sm:text-xl mt-0.5">${item.Nama_HP || 'Perangkat Servis'}</h3>
+                    </div>
+                    <span class="px-3.5 py-1.5 rounded-full text-xs font-bold border ${badgeColor}">${item.Status_Perbaikan}</span>
+                </div>
+                <div class="py-4">
+                    <div class="flex justify-between items-center">${stepper}</div>
+                </div>
+                <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/60 text-xs sm:text-sm space-y-3">
+                    <div class="flex justify-between border-b border-slate-800 pb-2"><span class="text-slate-400">Nama Konsumen</span> <strong class="text-white">${item.Nama_Konsumen}</strong></div>
+                    <div class="flex justify-between border-b border-slate-800 pb-2"><span class="text-slate-400">Keluhan Kerusakan</span> <strong class="text-white text-right max-w-[200px] sm:max-w-xs truncate">${item.Detail_Kerusakan}</strong></div>
+                    ${item.Sparepart_Digunakan ? `<div class="flex justify-between border-b border-slate-800 pb-2"><span class="text-slate-400">Sparepart Dipakai</span> <strong class="text-blue-400 text-right">${item.Sparepart_Digunakan}</strong></div>` : ''}
+                    <div class="flex justify-between border-b border-slate-800 pb-2"><span class="text-slate-400">Biaya Perbaikan</span> <strong class="text-emerald-400 text-base">Rp ${(parseFloat(item.Biaya_Perbaikan)||0).toLocaleString('id-ID')}</strong></div>
+                    ${item.Metode_Pembayaran ? `<div class="flex justify-between"><span class="text-slate-400">Metode Pembayaran</span> <strong class="text-white"><i class="fa-solid ${item.Metode_Pembayaran === 'QRIS' ? 'fa-qrcode text-blue-400' : 'fa-money-bill-wave text-emerald-400'} mr-1"></i> ${item.Metode_Pembayaran}</strong></div>` : ''}
+                </div>
+            `;
+            showToast("Data status berhasil dimuat!", "success");
+        }
+
+        function openScanner() {
+            document.getElementById('modalScanner').classList.remove('hidden');
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 220, height: 220 } }, text => {
+                closeScanner();
+                let id = text.trim().toUpperCase();
+                document.getElementById('consumerInputId').value = id;
+                cariStatusKonsumen();
+                showToast("Berhasil scan QR!", "success");
+            }, err => {}).catch(err => { showToast("Gagal membuka kamera", "error"); closeScanner(); });
+        }
+
+        function closeScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => { html5QrCode.clear(); document.getElementById('modalScanner').classList.add('hidden'); }).catch(() => { document.getElementById('modalScanner').classList.add('hidden'); });
+            } else document.getElementById('modalScanner').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
