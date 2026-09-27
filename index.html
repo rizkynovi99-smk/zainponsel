@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -1191,7 +1192,13 @@
                     try {
                         const data = JSON.parse(text);
                         if (Array.isArray(data)) {
-                            expenseDatabase = data;
+                            expenseDatabase = data.map(item => ({
+                                ID_Pengeluaran: item.ID_Pengeluaran || item.id_pengeluaran || '',
+                                Judul: item.Judul || item.judul || '',
+                                Tanggal: item.Tanggal || item.tanggal || '',
+                                Jumlah: parseFloat(item.Jumlah || item.jumlah) || 0,
+                                Detail: item.Detail || item.detail || ''
+                            }));
                             localStorage.setItem('expense_db', JSON.stringify(expenseDatabase));
                             renderExpenseTable();
                             renderLaporanKeuangan();
