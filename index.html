@@ -1133,6 +1133,16 @@
             }
         }
 
+        function formatDateTimeWithoutLeadingZeros(now = new Date()) {
+            const day = now.getDate();
+            const month = now.getMonth() + 1;
+            const year = now.getFullYear();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            return `${day}/${month}/${year}, ${hours}.${minutes}.${seconds}`;
+        }
+
         function syncFromGoogleSheets(isManual = false) {
             const url = getActiveWebUrl();
             if (!url) { updateSyncBadge('error', 'URL Belum Set'); return; }
@@ -1317,13 +1327,23 @@
             }
 
             filtered.forEach(item => {
-                const isCritical = (parseInt(item.Qty) || 0) <= (parseInt(item.Min_Qty) || 2);
-                const badgeQty = isCritical ? `<span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full font-bold">${item.Qty} (Min!)</span>` : `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold">${item.Qty}</span>`;
+                const qtyVal = parseInt(item.Qty) || 0;
+                let qtyBadge = "";
+                if (qtyVal > 50) {
+                    qtyBadge = `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-bold">${qtyVal}</span>`;
+                } else if (qtyVal >= 10) {
+                    qtyBadge = `<span class="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full font-bold">${qtyVal}</span>`;
+                } else if (qtyVal > 0) {
+                    qtyBadge = `<span class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full font-bold">${qtyVal}</span>`;
+                } else {
+                    qtyBadge = `<span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full font-bold">0 (Habis)</span>`;
+                }
+
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition-colors">
                         <td class="p-3"><div class="font-bold text-slate-900 font-mono">${item.SKU}</div><div class="text-[10px] text-slate-500">${item.Kategori}</div></td>
                         <td class="p-3 font-medium text-slate-800">${item.Nama_Barang}</td>
-                        <td class="p-3">${badgeQty}</td>
+                        <td class="p-3">${qtyBadge}</td>
                         <td class="p-3">Rp ${(parseFloat(item.Modal) || 0).toLocaleString('id-ID')}</td>
                         <td class="p-3 font-bold text-emerald-600">Rp ${(parseFloat(item.Jual) || 0).toLocaleString('id-ID')}</td>
                         <td class="p-3 text-center">
@@ -1440,8 +1460,7 @@
         }
 
         function addStockLog(sku, mutasi, keterangan) {
-            const now = new Date();
-            const formattedDate = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}, ${String(now.getHours()).padStart(2,'0')}.${String(now.getMinutes()).padStart(2,'0')}.${String(now.getSeconds()).padStart(2,'0')}`;
+            const formattedDate = formatDateTimeWithoutLeadingZeros(new Date());
             const logObj = { Waktu: formattedDate, SKU: sku, Mutasi: mutasi, Keterangan: keterangan };
             stockLogs.unshift(logObj);
             if (stockLogs.length > 100) stockLogs.pop();
@@ -1500,8 +1519,9 @@
                 const d = new Date();
                 const day = d.getDay();
                 const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
-                const monday = new Date(d.setDate(diffToMonday)).toISOString().slice(0, 10);
-                document.getElementById('expenseStartDate').value = monday;
+                const mondayDate = new Date(d.setDate(diffToMonday));
+                const mondayStr = mondayDate.toISOString().slice(0, 10);
+                document.getElementById('expenseStartDate').value = mondayStr;
                 document.getElementById('expenseEndDate').value = todayStr;
             } else if (preset === 'month') {
                 const firstMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
@@ -1566,12 +1586,12 @@
             const id = "EXP-" + Math.floor(1000 + Math.random() * 9000);
             const judul = document.getElementById('expenseJudul').value.trim();
             const rawDateInput = document.getElementById('expenseTanggal').value;
-            const now = new Date();
             let formattedDate = rawDateInput;
             if (rawDateInput) {
                 const parts = rawDateInput.split('-');
                 if (parts.length === 3) {
-                    formattedDate = `${parseInt(parts[2])}/${parseInt(parts[1])}/${parts[0]}, ${String(now.getHours()).padStart(2,'0')}.${String(now.getMinutes()).padStart(2,'0')}.${String(now.getSeconds()).padStart(2,'0')}`;
+                    const tempDateObj = new Date(parts[0], parts[1] - 1, parts[2], new Date().getHours(), new Date().getMinutes(), new Date().getSeconds());
+                    formattedDate = formatDateTimeWithoutLeadingZeros(tempDateObj);
                 }
             }
             const jumlah = parseFloat(document.getElementById('expenseJumlah').value) || 0;
@@ -1611,8 +1631,9 @@
                 const d = new Date();
                 const day = d.getDay();
                 const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
-                const monday = new Date(d.setDate(diffToMonday)).toISOString().slice(0, 10);
-                document.getElementById('laporanStartDate').value = monday;
+                const mondayDate = new Date(d.setDate(diffToMonday));
+                const mondayStr = mondayDate.toISOString().slice(0, 10);
+                document.getElementById('laporanStartDate').value = mondayStr;
                 document.getElementById('laporanEndDate').value = todayStr;
             } else if (preset === 'month') {
                 const firstMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
@@ -1860,8 +1881,7 @@
         function handleRegistrationSubmit(e) {
             e.preventDefault();
             const id = "SRV-" + Math.floor(100000 + Math.random() * 900000);
-            const now = new Date();
-            const formattedDate = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}, ${String(now.getHours()).padStart(2,'0')}.${String(now.getMinutes()).padStart(2,'0')}.${String(now.getSeconds()).padStart(2,'0')}`;
+            const formattedDate = formatDateTimeWithoutLeadingZeros(new Date());
 
             if (tempPhotoBase64) localPhotos[id] = tempPhotoBase64;
 
@@ -2235,8 +2255,9 @@
                 const d = new Date();
                 const day = d.getDay();
                 const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
-                const monday = new Date(d.setDate(diffToMonday)).toISOString().slice(0, 10);
-                document.getElementById('recapStartDate').value = monday;
+                const mondayDate = new Date(d.setDate(diffToMonday));
+                const mondayStr = mondayDate.toISOString().slice(0, 10);
+                document.getElementById('recapStartDate').value = mondayStr;
                 document.getElementById('recapEndDate').value = todayStr;
             } else if (preset === 'month') {
                 const first = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
